@@ -17,7 +17,7 @@ var view = new DataView(arrayBuffer);
 var suite = new Benchmark.Suite;
 
 
-var LittleBigByte = function (i) {
+var littleBigInteger = function (i) {
     var j = ((i & 0xff000000) >> 24) | ((i & 0xff0000) >> 8) | ((i & 0xff00) << 8) | ((i & 0xff) << 24);
     return j;
 }
@@ -29,7 +29,7 @@ var getLittlePixel = function (ndx) {
 
 var getBigPixel = function (ndx) {
     var c = arr32[ndx];
-    return LittleBigByte(c);
+    return littleBigInteger(c);
 }
 
 var setLittlePixel = function (ndx, color) {
@@ -37,7 +37,7 @@ var setLittlePixel = function (ndx, color) {
 }
 
 var setBigPixel = function (ndx, color) {
-    arr32[ndx] = LittleBigByte(color);
+    arr32[ndx] = littleBigInteger(color);
 }
 
 //var getPixel = getLittlePixel;
