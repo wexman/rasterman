@@ -1,6 +1,6 @@
 var path = require('path');
 
-var rasterImage = require('../rasterman.js').rasterImage;
+var rasterImage = require('../rasterman.js');
 
 rasterImage.use(require('../rasterman-pics.js'));	// load the pics-plugin
 

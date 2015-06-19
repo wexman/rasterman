@@ -1,7 +1,7 @@
 ﻿"use strict";
 
 var assert = require("assert");
-var rasterImage = require('../').rasterImage;
+var rasterImage = require('../rasterman.js');
 
 describe('rasterImage', function () {
     
