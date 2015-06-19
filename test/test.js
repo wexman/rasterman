@@ -1,7 +1,7 @@
 ﻿"use strict";
 
 var assert = require("assert");
-var rasterImage = require('../').rasterImage;
+var rasterImage = require('../rasterman.js');
 
 describe('rasterImage', function () {
     
@@ -115,6 +115,15 @@ describe('rasterImage', function () {
             assert.equal(img.getPixel(2, 0),null);
             assert.equal(img.getPixel(0, -1),null);
             assert.equal(img.getPixel(0, 2),null);
+        });
+    });
+
+    describe('.use', function(){
+         it('Calls the plugins\' init function if available', function(){
+            var wasCalled = false;
+            var plugin = {init: function(foo){wasCalled = foo == rasterImage;}};
+            rasterImage.use(plugin);
+            assert.equal(wasCalled, true);
         });
     });
 });
