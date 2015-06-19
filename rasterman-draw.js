@@ -13,7 +13,7 @@ exports.init = function (rasterImage) {
 	 */
 	rasterImage.prototype.drawLine = function (x0, y0, x1, y1, color) {
 	    
-	    color = this._sanitize(color);
+	    color = this._colorify(color);
 	    
 	    var dx = Math.abs(x1 - x0);
 	    var dy = Math.abs(y1 - y0);
@@ -42,7 +42,7 @@ exports.init = function (rasterImage) {
 
 	rasterImage.prototype.drawRect = function(x, y, width, height, color)
 	{
-	    color = this._sanitize(color);
+	    color = this._colorify(color);
 	    
 	    var l = Math.max(0, x);
 	    var t = Math.max(0, y);
@@ -65,7 +65,7 @@ exports.init = function (rasterImage) {
 
 	rasterImage.prototype.drawEllipse = function (xm, ym, a, b, color, fill) 
 	{
-	    color = this._sanitize(color);
+	    color = this._colorify(color);
 	    
 	    var dx = 0,
 	        dy = b; /* im I. Quadranten von links oben nach rechts unten */

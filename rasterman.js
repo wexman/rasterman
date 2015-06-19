@@ -4,6 +4,8 @@ var util = require('util');
 
 var BYTES_PER_PIXEL = 4;
 
+var R=0, G=1, B=2, A=3; 
+
 /** 
  * Creates a new raster image
  * @constructor
@@ -77,14 +79,12 @@ rasterImage.use = function(plugin)
  * Provides reasonable default values for color.
  * @private
  */
-rasterImage.prototype._sanitize = function (color) {
+rasterImage.prototype._colorify = function (color) {
     
-    var result = {
-        r: color.r || 0,
-        g: color.g || 0,
-        b: color.b || 0,
-        a: color.a || 255
-    };
+    if(util.isArray(color))
+        return color;
+
+    var result = [color.r || 0, color.g || 0,color.b || 0, color.a || 255];
     return result;
 }
 
@@ -93,13 +93,13 @@ rasterImage.prototype._sanitize = function (color) {
  * @param {object} color The color to set the pixels to. Must have r, g, b and/or a properties.
  */
 rasterImage.prototype.clear = function (color) {
-    var c = this._sanitize(color);
+    var c = this._colorify(color);
     
     for (var i = 0; i < this.data.length; i += 4) {
-        this.data[i] = c.r;
-        this.data[i + 1] = c.g;
-        this.data[i + 2] = c.b;
-        this.data[i + 3] = c.a;
+        this.data[i + R] = c[R];
+        this.data[i + G] = c[G];
+        this.data[i + B] = c[B];
+        this.data[i + A] = c[A];
     }
     
     return this;
@@ -110,9 +110,9 @@ rasterImage.prototype.clear = function (color) {
  */
 rasterImage.prototype.invert = function () {
     for (var i = 0; i < this.data.length; i += 4) {
-        this.data[i] = 255 - this.data[i];
-        this.data[i + 1] = 255 - this.data[i + 1];
-        this.data[i + 2] = 255 - this.data[i + 2];
+        this.data[i + R] = 255 - this.data[i + R];
+        this.data[i + G] = 255 - this.data[i + G];
+        this.data[i + B] = 255 - this.data[i + B];
     }
     return this;
 }
@@ -130,13 +130,13 @@ rasterImage.prototype.grayscale = function () {
     };
     
     for (var i = 0; i < this.data.length; i += 4) {
-        var r = this.data[i] * weights.r;
-        var g = this.data[i + 1] * weights.g;
-        var b = this.data[i + 2] * weights.b;
+        var r = this.data[i + R] * weights.r;
+        var g = this.data[i + G] * weights.g;
+        var b = this.data[i + B] * weights.b;
         
         var l = r + g + b;
         
-        this.data[i] = this.data[i + 1] = this.data[i + 2] = l;
+        this.data[i+R] = this.data[i + G] = this.data[i + B] = l;
     }
     
     return this;
@@ -150,7 +150,7 @@ rasterImage.prototype.setPixel = function (x, y, color) {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height)
         return;
     
-    var c = this._sanitize(color);
+    var c = this._colorify(color);
     
     this._setPixel(x, y, color);
     return this;
@@ -162,10 +162,10 @@ rasterImage.prototype.setPixel = function (x, y, color) {
  */
 rasterImage.prototype._setPixel = function (x, y, color) {
     var offset = (y * this.width + x) * BYTES_PER_PIXEL;
-    this.data[offset] = color.r;
-    this.data[offset + 1] = color.g;
-    this.data[offset + 2] = color.b;
-    this.data[offset + 3] = color.a;
+    this.data[offset + R] = color[R]
+    this.data[offset + G] = color[G];
+    this.data[offset + B] = color[B];
+    this.data[offset + A] = color[A];
 }
 
 /**
@@ -183,12 +183,12 @@ rasterImage.prototype.getPixel = function (x, y) {
     y = Math.floor(y);
     
     var offset = (y * this.width + x) * BYTES_PER_PIXEL;
-    var result = {
-        r: this.data[offset],
-        g: this.data[offset + 1],
-        b: this.data[offset + 2],
-        a: this.data[offset + 3]
-    };
+    var result = [
+        this.data[offset],
+        this.data[offset + 1],
+        this.data[offset + 2],
+        this.data[offset + 3]
+    ];
     
     return result;
 }
@@ -217,10 +217,10 @@ rasterImage.fromRgb = function (width, height, data) {
             var srcOffset = (x + yw) * 3;
             var dstOffset = (x + yw) * 4;
             
-            tmp[dstOffset] = data[srcOffset];
-            tmp[dstOffset + 1] = data[srcOffset + 1];
-            tmp[dstOffset + 2] = data[srcOffset + 2];
-            tmp[dstOffset + 3] = 255;
+            tmp[dstOffset + R] = data[srcOffset + R];
+            tmp[dstOffset + G] = data[srcOffset + G];
+            tmp[dstOffset + B] = data[srcOffset + B];
+            tmp[dstOffset + A] = 255;
         }
     }
     

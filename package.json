@@ -1,39 +1,40 @@
 {
-    "name": "rasterman",
-    "version": "0.0.1",
-    "description": "Raster image manipulation in pure JavaScript without external dependencies.",
-    "main": "rasterman.js",
-    "dependencies": { },
-    "devDependencies": {
-        "benchmark": "^1.0.0",
-        "color-string": "^0.2.4",
-        "mocha": "^2.2.5"
-    },
-    "optionalDependencies": {
-	    "pics": "~1.0.3",
-	    "gif-stream": "~1.1.0",
-	    "jpg-stream": "~1.1.1",
-	    "png-stream": "~1.0.4",
-	    "concat-frames": "~1.0.3"
-	},
-    "scripts": {
-        "test": "mocha"
-    },
-    "keywords": [
-        "raster",
-        "image",
-        "bitmap",
-        "pixel",
-        "picture",
-        "png",
-        "jpeg",
-        "gif",
-        "resize"
-    ],
-    "author": "Jens Weiermann",
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "ssh://solidnas/volume1/git-repos/rasterman"
-    }
+  "name": "rasterman",
+  "version": "0.0.1",
+  "description": "Raster image manipulation in pure JavaScript without external dependencies.",
+  "main": "rasterman.js",
+  "dependencies": {},
+  "devDependencies": {
+    "benchmark": "^1.0.0",
+    "color-string": "^0.2.4",
+    "mocha": "^2.2.5",
+    "open": "0.0.5"
+  },
+  "optionalDependencies": {
+    "pics": "~1.0.3",
+    "gif-stream": "~1.1.0",
+    "jpg-stream": "~1.1.1",
+    "png-stream": "~1.0.4",
+    "concat-frames": "~1.0.3"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [
+    "raster",
+    "image",
+    "bitmap",
+    "pixel",
+    "picture",
+    "png",
+    "jpeg",
+    "gif",
+    "resize"
+  ],
+  "author": "Jens Weiermann",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "ssh://solidnas/volume1/git-repos/rasterman"
+  }
 }

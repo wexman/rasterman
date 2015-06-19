@@ -1,6 +1,7 @@
-var path = require('path');
-
 var rasterImage = require('../rasterman.js');
+
+var open = require('open');
+var path = require('path');
 
 rasterImage.use(require('../rasterman-pics.js'));	// load the pics-plugin
 
@@ -14,7 +15,10 @@ rasterImage.load(path.resolve(__dirname, 'monalisa.jpg'), function(err, img){
 			if(err)
 				console.log(err);
 			else
+			{
 				console.log('image successfully saved');
+				open('test.png');
+			}
 		});
 	}
 	else
