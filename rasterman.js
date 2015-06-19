@@ -1,17 +1,22 @@
 'use strict';
 
+var util = require('util');
+
 var BYTES_PER_PIXEL = 4;
 
 /** 
  * Creates a new raster image
  * @constructor
+ * @param {number} width The with of the new image, in pixels
+ * @param {number} height The height of the new image, in pixels
+ * @param {Array} [data] Pixel data in rgba format
  */
 var rasterImage = function (width, height, data) {
     
+    if (!(this instanceof rasterImage)) return new rasterImage(width, height, data);
+    
     if (!(width > 0 && height > 0))
         throw new Error('Invalid dimensions');
-    
-    if (!(this instanceof rasterImage)) return new rasterImage(width, height, data);
     
     this.width = Math.floor(width);
     this.height = Math.floor(height);
@@ -41,8 +46,8 @@ var rasterImage = function (width, height, data) {
         }
     } else {
         this.buffer = new ArrayBuffer(len);
-        this.data = new Uint8ClampedArray(this.buffer); // for per-pixel color access
-        this.data32 = new Uint32Array(this.buffer); // for copy operations etc. (not endian-correct!)
+        this.data = new Uint8ClampedArray(this.buffer);     // for per-channel pixel access
+        this.data32 = new Uint32Array(this.buffer);         // for fast per-pixel access (endian-ignorant)
     }
 }
 
@@ -57,7 +62,15 @@ rasterImage.prototype._replaceBuffer = function (newBuffer, newWidth, newHeight)
             this.height = Math.floor(newHeight);
             this.numPixels = this.width * this.height;
         }
+    } else {
+        throw new Error('newBuffer must be an ArrayBuffer');
     }
+}
+
+rasterImage.use = function(plugin)
+{
+    if(util.isFunction(plugin.init))
+		plugin.init(rasterImage);
 }
 
 /**
@@ -309,14 +322,6 @@ rasterImage.prototype.rotateLeft = function () {
     
     this._replaceBuffer(tmp, h, w);		// swap width and height
     
-    /*    
-	this.width = h;
-    this.height = w;
-
-    this.buffer = tmp;
-    this.data = new Uint8ClampedArray(this.buffer);
-    this.data32 = tmp32;
-*/    
     return this;
 }
 
@@ -340,15 +345,6 @@ rasterImage.prototype.rotateRight = function () {
     
     this._replaceBuffer(tmp, h, w);		// swap width and height
     
-    /*
-    // swap width and height
-    this.width = h;
-    this.height = w;
-
-    this.buffer = tmp;
-    this.data = new Uint8ClampedArray(this.buffer);
-    this.data32 = tmp32;
-*/  
     return this;
 }
 
@@ -474,23 +470,25 @@ rasterImage.prototype.toRgb = function () {
  */
 rasterImage.prototype.resize_nearest = function (newWidth, newHeight) {
     
-    var newImage = new rasterImage(newWidth, newHeight);
-    
-    var x_ratio = ((this.width << 16) / newImage.width) + 1;
-    var y_ratio = ((this.height << 16) / newImage.height) + 1;
+    var tmp = new ArrayBuffer(newWidth * newHeight * BYTES_PER_PIXEL);
+    var tmp32 = new Uint32Array(tmp);
+
+    var x_ratio = ((this.width << 16) / newWidth) + 1;
+    var y_ratio = ((this.height << 16) / newHeight) + 1;
     
     var x2, y2;
-    for (var i = 0; i < newImage.height; i++) {
+    for (var i = 0; i < newHeight; i++) {
         y2 = ((i * y_ratio) >> 16);
-        for (var j = 0; j < newImage.width; j++) {
+        for (var j = 0; j < newWidth; j++) {
             x2 = ((j * x_ratio) >> 16);
             
-            // it is safe (endian-wise) to use 32bit access here since we're not dealing with the individual channels
             var schmp = this.data32[(y2 * this.width + x2)];
-            newImage.data32[i * newImage.width + j] = schmp;
+            tmp32[i * newWidth + j] = schmp;
         }
     }
-    return newImage;
+
+    this._replaceBuffer(tmp, newWidth, newHeight);
+    return this;
 }
 
 rasterImage.prototype.resize_bilinear = function (newWidth, newHeight) {

@@ -117,4 +117,13 @@ describe('rasterImage', function () {
             assert.equal(img.getPixel(0, 2),null);
         });
     });
+
+    describe('.use', function(){
+         it('Calls the plugins\' init function if available', function(){
+            var wasCalled = false;
+            var plugin = {init: function(foo){wasCalled = foo == rasterImage;}};
+            rasterImage.use(plugin);
+            assert.equal(wasCalled, true);
+        });
+    });
 });
