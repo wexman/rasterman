@@ -16,35 +16,6 @@ var arr32 = new Uint32Array(arrayBuffer);
 var view = new DataView(arrayBuffer);
 var suite = new Benchmark.Suite;
 
-
-var littleBigInteger = function (i) {
-    var j = ((i & 0xff000000) >> 24) | ((i & 0xff0000) >> 8) | ((i & 0xff00) << 8) | ((i & 0xff) << 24);
-    return j;
-}
-
-var getLittlePixel = function (ndx) {
-    var c = arr32[ndx];
-    return c;
-}
-
-var getBigPixel = function (ndx) {
-    var c = arr32[ndx];
-    return littleBigInteger(c);
-}
-
-var setLittlePixel = function (ndx, color) {
-    arr32[ndx] = color;
-}
-
-var setBigPixel = function (ndx, color) {
-    arr32[ndx] = littleBigInteger(color);
-}
-
-//var getPixel = getLittlePixel;
-//var setPixel = setLittlePixel;
-
-console.log(numPixels);
-
 suite
 //.add('ArrayBuffer+Uint8Array, single loop, plus', function () {     // ==>fastest, endian-correct version
 //    for (var i = 0; i < arr8.length; i += 4) {
@@ -133,40 +104,26 @@ suite
 //        }
 //    }
 //})
+.add('ArrayBuffer+Uint8Array, single loop', function () {
+    for (var i = 0; i < numPixels; i += 4) {
+        arr8[i] = 255 - arr8[i];
+        arr8[i + 1] = 255 - arr8[i + 1];
+        arr8[i + 2] = 255 - arr8[i + 2];
+        arr8[i + 3] = 255 - arr8[i + 3];
+    }
+})
 .add('ArrayBuffer+Uint32Array, single loop', function () {
     for (var i = 0; i < numPixels; i++) {
         var c = arr32[i];
-        var r = c & 255;
-        var g = (c >> 8) & 255;
-        var b = (c >> 16) & 255;
-        var a = (c >> 24) & 255;
-        c = (a << 24) | (b << 16) | (g << 8) | r;
+        var r = (c >> RSHIFT) & 255;
+        var g = (c >> GSHIFT) & 255;
+        var b = (c >> BSHIFT) & 255;
+        var a = (c >> ASHIFT) & 255;
+        c = ((255-a) << 24) | ((255-b) << 16) | ((255-g) << 8) | (255-r);
         arr32[i] = c;
     }
 })
-.add('ArrayBuffer+Uint32Array, endianCorrect without conversion', function () {
-    var a = numPixels;
-    for (var i = 0; i < numPixels; i++) {
-        var c = getLittlePixel(i);
-        var r = c & 255;
-        var g = (c >> 8) & 255;
-        var b = (c >> 16) & 255;
-        var a = (c >> 24) & 255;
-        c = (a << 24) | (b << 16) | (g << 8) | r;
-        setLittlePixel(i, c);
-    }
-})
-.add('ArrayBuffer+Uint32Array, endianCorrect with conversion', function () {
-    for (var i = 0; i < numPixels; i++) {
-        var c = getBigPixel(i);
-        var r = c & 255;
-        var g = (c >> 8) & 255;
-        var b = (c >> 16) & 255;
-        var a = (c >> 24) & 255;
-        c = (a << 24) | (b << 16) | (g << 8) | r;
-        setBigPixel(i, c);
-    }
-})
+
 //.add('ArrayBuffer+Uint32Array, endianAwareInline', function () {
 //    for (var i = 0; i < numPixels; i++) {
 //        var c = arr32[i];

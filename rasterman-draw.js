@@ -13,8 +13,12 @@ exports.init = function (rasterImage) {
 	 */
 	rasterImage.prototype.drawLine = function (x0, y0, x1, y1, color) {
 	    
-	    color = this._colorify(color);
-	    
+        color = this._colorify(color);
+        
+        var pixelFunc = rasterImage.prototype.setPixel.bind(this);
+        if (color[3] < 255)
+            pixelFunc = rasterImage.prototype.blendPixel.bind(this);
+
 	    var dx = Math.abs(x1 - x0);
 	    var dy = Math.abs(y1 - y0);
 	    var sx = (x0 < x1) ? 1 : -1;
@@ -23,7 +27,7 @@ exports.init = function (rasterImage) {
 	    
 	    while (true) {
 	        
-	        this.setPixel(x0, y0, color);
+	        pixelFunc(x0, y0, color);
 	        
 	        if ((x0 == x1) && (y0 == y1)) break;
 	        var e2 = 2 * err;
@@ -50,9 +54,9 @@ exports.init = function (rasterImage) {
 	    var r = Math.min(this.width, l + width);
 	    var b = Math.min(this.height, t + height);
 	    
-	    var pixelFunc = rasterImage.prototype.setPixel.bind(this);
-	    if (color.a < 255)
-	        pixelFunc = rasterImage.prototype.drawPixel.bind(this);
+	    var pixelFunc = rasterImage.prototype._setPixel.bind(this);
+	    if (color[3] < 255)
+	        pixelFunc = rasterImage.prototype._blendPixel.bind(this);
 	    
 	    for (var y = t; y < b; y++) {
 	        for (var x = l; x < r; x++) {
@@ -65,7 +69,11 @@ exports.init = function (rasterImage) {
 
 	rasterImage.prototype.drawEllipse = function (xm, ym, a, b, color, fill) 
 	{
-	    color = this._colorify(color);
+        color = this._colorify(color);
+        
+        var pixelFunc = rasterImage.prototype.setPixel.bind(this);
+        if (color[3] < 255)
+            pixelFunc = rasterImage.prototype.blendPixel.bind(this);
 	    
 	    var dx = 0,
 	        dy = b; /* im I. Quadranten von links oben nach rechts unten */
@@ -80,10 +88,10 @@ exports.init = function (rasterImage) {
 	            this.drawLine(xm - dx, ym + dy, xm + dx, ym + dy, color);
 	            this.drawLine(xm - dx, ym - dy, xm + dx, ym - dy, color);
 	        } else {
-	            this.setPixel(xm + dx, ym + dy, color); /* I. Quadrant */
-	            this.setPixel(xm - dx, ym + dy, color); /* II. Quadrant */
-	            this.setPixel(xm - dx, ym - dy, color); /* III. Quadrant */
-	            this.setPixel(xm + dx, ym - dy, color); /* IV. Quadrant */
+	            pixelFunc(xm + dx, ym + dy, color); /* I. Quadrant */
+	            pixelFunc(xm - dx, ym + dy, color); /* II. Quadrant */
+	            pixelFunc(xm - dx, ym - dy, color); /* III. Quadrant */
+	            pixelFunc(xm + dx, ym - dy, color); /* IV. Quadrant */
 	        }
 	        
 	        e2 = 2 * err;
@@ -99,17 +107,11 @@ exports.init = function (rasterImage) {
 	    
 	    while (dx++ < a) {
 	        /* fehlerhafter Abbruch bei flachen Ellipsen (b=1) */
-	        setPixel(xm + dx, ym, color); /* -> Spitze der Ellipse vollenden */
-	        setPixel(xm - dx, ym, color);
+            pixelFunc(xm + dx, ym, color); /* -> Spitze der Ellipse vollenden */
+            pixelFunc(xm - dx, ym, color);
 	    }
 	    
 	    return this;
 	}
 
-	/**
-	 * Alpha-blends a pixel in a raster image with the given color
-	 */
-	rasterImage.prototype.drawPixel = function (x, y, color) {
-	    throw new Error("Not (yet) implemented");
-	}
 }

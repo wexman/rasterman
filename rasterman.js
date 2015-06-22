@@ -4,7 +4,7 @@ var util = require('util');
 
 var BYTES_PER_PIXEL = 4;
 
-var R=0, G=1, B=2, A=3; 
+var R = 0, G = 1, B = 2, A = 3;
 
 /** 
  * Creates a new raster image
@@ -31,24 +31,24 @@ var rasterImage = function (width, height, data) {
         // special cases: these instances can be used directly (without copying), so let's do that...
         if (data instanceof Uint8ClampedArray && data.length == len) {
             this.buffer = data.buffer;
-            this.data = data;
+            this.data8 = data;
             this.data32 = new Uint32Array(this.buffer);
         } else if (data instanceof ArrayBuffer && data.byteLength == len) {
             this.buffer = data;
-            this.data = new Uint8ClampedArray(this.buffer);
+            this.data8 = new Uint8ClampedArray(this.buffer);
             this.data32 = new Uint32Array(this.buffer);
         } else if (data.length == len) {
             this.buffer = new ArrayBuffer(len);
-            this.data = new Uint8ClampedArray(this.buffer);
+            this.data8 = new Uint8ClampedArray(this.buffer);
             this.data32 = new Uint32Array(this.buffer);
             
             for (var i = 0; i < data.length; i++) {
-                this.data[i] = data[i];
+                this.data8[i] = data[i];
             }
         }
     } else {
         this.buffer = new ArrayBuffer(len);
-        this.data = new Uint8ClampedArray(this.buffer);     // for per-channel pixel access
+        this.data8 = new Uint8ClampedArray(this.buffer);     // for per-channel pixel access
         this.data32 = new Uint32Array(this.buffer);         // for fast per-pixel access (endian-ignorant)
     }
 }
@@ -56,7 +56,7 @@ var rasterImage = function (width, height, data) {
 rasterImage.prototype._replaceBuffer = function (newBuffer, newWidth, newHeight) {
     if (newBuffer instanceof ArrayBuffer) {
         this.buffer = newBuffer;
-        this.data = new Uint8ClampedArray(this.buffer);
+        this.data8 = new Uint8ClampedArray(this.buffer);
         this.data32 = new Uint32Array(this.buffer);
         
         if (newWidth && newHeight) {
@@ -69,10 +69,12 @@ rasterImage.prototype._replaceBuffer = function (newBuffer, newWidth, newHeight)
     }
 }
 
-rasterImage.use = function(plugin)
-{
-    if(util.isFunction(plugin.init))
-		plugin.init(rasterImage);
+/**
+ * Initializes a plugin
+ */
+rasterImage.use = function (plugin) {
+    if (util.isFunction(plugin.init))
+        plugin.init(rasterImage);
 }
 
 /**
@@ -81,10 +83,10 @@ rasterImage.use = function(plugin)
  */
 rasterImage.prototype._colorify = function (color) {
     
-    if(util.isArray(color))
+    if (util.isArray(color) && color.length === 4)
         return color;
-
-    var result = [color.r || 0, color.g || 0,color.b || 0, color.a || 255];
+    
+    var result = [color.r || 0, color.g || 0, color.b || 0, color.a || 255];
     return result;
 }
 
@@ -95,11 +97,8 @@ rasterImage.prototype._colorify = function (color) {
 rasterImage.prototype.clear = function (color) {
     var c = this._colorify(color);
     
-    for (var i = 0; i < this.data.length; i += 4) {
-        this.data[i + R] = c[R];
-        this.data[i + G] = c[G];
-        this.data[i + B] = c[B];
-        this.data[i + A] = c[A];
+    for (var i = 0; i < this.data8.length; i += 4) {
+        this.data8.set(c, i);
     }
     
     return this;
@@ -109,10 +108,10 @@ rasterImage.prototype.clear = function (color) {
  * Inverts the colors in a raster image
  */
 rasterImage.prototype.invert = function () {
-    for (var i = 0; i < this.data.length; i += 4) {
-        this.data[i + R] = 255 - this.data[i + R];
-        this.data[i + G] = 255 - this.data[i + G];
-        this.data[i + B] = 255 - this.data[i + B];
+    for (var i = 0; i < this.data8.length; i += 4) {
+        this.data8[i + R] = 255 - this.data8[i + R];
+        this.data8[i + G] = 255 - this.data8[i + G];
+        this.data8[i + B] = 255 - this.data8[i + B];
     }
     return this;
 }
@@ -129,14 +128,15 @@ rasterImage.prototype.grayscale = function () {
         b: 0.0722
     };
     
-    for (var i = 0; i < this.data.length; i += 4) {
-        var r = this.data[i + R] * weights.r;
-        var g = this.data[i + G] * weights.g;
-        var b = this.data[i + B] * weights.b;
+    for (var i = 0; i < this.data8.length; i += 4) {
+        var r = this.data8[i + R] * weights.r;
+        var g = this.data8[i + G] * weights.g;
+        var b = this.data8[i + B] * weights.b;
         
         var l = r + g + b;
         
-        this.data[i+R] = this.data[i + G] = this.data[i + B] = l;
+        //        this.data8.fill(l, i, i + 2); // seems to not be supported (yet?)
+        this.data8[i + R] = this.data8[i + G] = this.data8[i + B] = l;
     }
     
     return this;
@@ -152,7 +152,7 @@ rasterImage.prototype.setPixel = function (x, y, color) {
     
     var c = this._colorify(color);
     
-    this._setPixel(x, y, color);
+    this._setPixel(x, y, c);
     return this;
 }
 
@@ -162,37 +162,63 @@ rasterImage.prototype.setPixel = function (x, y, color) {
  */
 rasterImage.prototype._setPixel = function (x, y, color) {
     var offset = (y * this.width + x) * BYTES_PER_PIXEL;
-    this.data[offset + R] = color[R]
-    this.data[offset + G] = color[G];
-    this.data[offset + B] = color[B];
-    this.data[offset + A] = color[A];
+    this.data8.set(color, offset);
+}
+
+/**
+ * Alpha-blends a pixel in a raster image with the given color
+*/
+rasterImage.prototype.blendPixel = function (x, y, color) {
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height)
+        return;
+    
+    var c = this._colorify(color);
+    
+    this._blendPixel(x, y, c);
+}
+
+rasterImage.prototype._blendPixel = function (x, y, color) {
+    
+    var offset = (y * this.width + x) * BYTES_PER_PIXEL;
+    
+    var adiv = color[A] / 255;
+    var bladiv = this.data8[offset + A] * (255 - color[A]) / (255 * 255);
+    
+    var rOut = (color[R] * adiv) + (this.data8[offset + R] * bladiv);
+    var gOut = (color[G] * adiv) + (this.data8[offset + G] * bladiv);
+    var bOut = (color[B] * adiv) + (this.data8[offset + B] * bladiv );
+    var aOut = color[A] + (this.data8[offset + A] * (255 - color[A]) / 255);
+    
+    this.data8[offset + R] = rOut;
+    this.data8[offset + G] = gOut;
+    this.data8[offset + B] = bOut;
+    this.data8[offset + A] = aOut;
 }
 
 /**
  * Retrieves the color of a pixel in a raster image.
  * @param {number} x The x coordinate of the pixel.
  * @param {number} y The y coordinate of the pixel.
- * @returns {object} An object representing the color of the pixel with the r, g, b and a members set accordingly.
+ * @returns {object} An object representing the color of the pixel with the r, g, b and a members set accordingly. Returns undefined when out of bounds.
  */
 rasterImage.prototype.getPixel = function (x, y) {
     
     if (x < 0 || x >= this.width || y < 0 || y >= this.height)
-        return null;
+        return undefined;
     
     x = Math.floor(x);
     y = Math.floor(y);
     
     var offset = (y * this.width + x) * BYTES_PER_PIXEL;
     var result = [
-        this.data[offset],
-        this.data[offset + 1],
-        this.data[offset + 2],
-        this.data[offset + 3]
+        this.data8[offset + R],
+        this.data8[offset + G],
+        this.data8[offset + B],
+        this.data8[offset + A]
     ];
     
     return result;
 }
-
 
 /**
  * Creates a raster image from an array(-like) of RGB data
@@ -396,9 +422,9 @@ rasterImage.prototype.toRgb = function () {
             var srcOffset = (x + yw) * 4;
             var dstOffset = (x + yw) * 3;
             
-            tmp[dstOffset] = this.data[srcOffset];
-            tmp[dstOffset + 1] = this.data[srcOffset + 1];
-            tmp[dstOffset + 2] = this.data[srcOffset + 2];
+            tmp[dstOffset + R] = this.data8[srcOffset + R];
+            tmp[dstOffset + G] = this.data8[srcOffset + G];
+            tmp[dstOffset + B] = this.data8[srcOffset + B];
         }
     }
     return tmp;
@@ -411,7 +437,7 @@ rasterImage.prototype.resize_nearest = function (newWidth, newHeight) {
     
     var tmp = new ArrayBuffer(newWidth * newHeight * BYTES_PER_PIXEL);
     var tmp32 = new Uint32Array(tmp);
-
+    
     var x_ratio = ((this.width << 16) / newWidth) + 1;
     var y_ratio = ((this.height << 16) / newHeight) + 1;
     
@@ -425,7 +451,7 @@ rasterImage.prototype.resize_nearest = function (newWidth, newHeight) {
             tmp32[i * newWidth + j] = schmp;
         }
     }
-
+    
     this._replaceBuffer(tmp, newWidth, newHeight);
     return this;
 }

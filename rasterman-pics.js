@@ -40,7 +40,7 @@ exports.init = function (rasterImage) {
         
         if (stream != null) {
             var encoder = pics.encode(format, { width: this.width, height: this.height, colorSpace: 'rgba' });
-            var buf = new Buffer(this.data);
+            var buf = new Buffer(this.data8);
             encoder.write(buf);
             encoder.pipe(stream);
             encoder.end(null, null, function (err) {

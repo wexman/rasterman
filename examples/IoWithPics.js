@@ -9,7 +9,7 @@ rasterImage.load(path.resolve(__dirname, 'monalisa.jpg'), function(err, img){
 	if(err==null)
 	{
 		console.log('image successfully loaded, processing...');
-		img.invert().rotate180().resize_nearest(800, 600);
+		img.grayscale().rotate180().resize_nearest(800, 600);
 		console.log('done');
 		img.save('test.png', 'image/png', function(err){
 			if(err)
