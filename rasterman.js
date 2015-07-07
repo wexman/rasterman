@@ -51,7 +51,7 @@ var rasterImage = function (width, height, data) {
         this.data8 = new Uint8ClampedArray(this.buffer);     // for per-channel pixel access
         this.data32 = new Uint32Array(this.buffer);         // for fast per-pixel access (endian-ignorant)
     }
-}
+};
 
 rasterImage.prototype._replaceBuffer = function (newBuffer, newWidth, newHeight) {
     if (newBuffer instanceof ArrayBuffer) {
@@ -67,7 +67,7 @@ rasterImage.prototype._replaceBuffer = function (newBuffer, newWidth, newHeight)
     } else {
         throw new Error('newBuffer must be an ArrayBuffer');
     }
-}
+};
 
 /**
  * Initializes a plugin
@@ -75,34 +75,52 @@ rasterImage.prototype._replaceBuffer = function (newBuffer, newWidth, newHeight)
 rasterImage.use = function (plugin) {
     if (util.isFunction(plugin.init))
         plugin.init(rasterImage);
-}
+};
 
 /**
  * Provides reasonable default values for color.
  * @private
  */
-rasterImage.prototype._colorify = function (color) {
+rasterImage._colorify = function (color) {
     
-    if (util.isArray(color) && color.length === 4)
+    if (color instanceof Uint8ClampedArray && color.length === BYTES_PER_PIXEL) {
+        console.log('Color already is Uint8ClampedArray');
         return color;
-    
-    var result = [color.r || 0, color.g || 0, color.b || 0, color.a || 255];
-    return result;
-}
+    } else if (util.isArray(color)) {
+        // might instead use ArrayBuffer.transfer() on ES7
+        console.log('Creating new ArrayBuffer from array');
+        var b8 = new Uint8ClampedArray(new ArrayBuffer(BYTES_PER_PIXEL));
+        b8[A] = 255; // default to opaque
+        for (var i = 0; i < color.length && i < BYTES_PER_PIXEL; i++)
+            b8[i] = color[i];
+        return b8;
+    } else if (typeof color === 'object') {
+        console.log('Creating new ArrayBuffer from object');
+        var b8 = new Uint8ClampedArray(new ArrayBuffer(BYTES_PER_PIXEL));
+        b8[R] = color.r || color.red || 0;
+        b8[G] = color.g || color.green || 0;
+        b8[B] = color.b || color.blue || 0;
+        b8[A] = color.a || color.alpha || 255; // default to opaque
+        return b8;
+    } else if (typeof color === 'string' || color instanceof String) {
+        // do some parsing here, probably using another package...
+    }
+};
 
 /**
  * Sets all pixels of an image to a specified color.
  * @param {object} color The color to set the pixels to. Must have r, g, b and/or a properties.
  */
 rasterImage.prototype.clear = function (color) {
-    var c = this._colorify(color);
+    var c8 = rasterImage._colorify(color);
+    var c32 = new Uint32Array(c8.buffer);
     
-    for (var i = 0; i < this.data8.length; i += 4) {
-        this.data8.set(c, i);
+    for (var i = 0; i < this.numPixels; i++) {
+        this.data32[i] = c32[0];
     }
     
     return this;
-}
+};
 
 /** 
  * Inverts the colors in a raster image
@@ -114,7 +132,7 @@ rasterImage.prototype.invert = function () {
         this.data8[i + B] = 255 - this.data8[i + B];
     }
     return this;
-}
+};
 
 /**
  * Converts a raster image to grayscale by weighting the r, g and b colors
@@ -140,7 +158,7 @@ rasterImage.prototype.grayscale = function () {
     }
     
     return this;
-}
+};
 
 /**
  * Sets a pixel in a raster image to a given color.
@@ -150,20 +168,33 @@ rasterImage.prototype.setPixel = function (x, y, color) {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height)
         return;
     
-    var c = this._colorify(color);
+    var c = rasterImage._colorify(color);
     
-    this._setPixel(x, y, c);
+    this.__setPixel(x, y, c);
     return this;
-}
+};
 
 /** 
- * Sets a pixel in a raster image to a given color. No range checks; faster, but might throw an exception.
+ * Sets a pixel in a raster image to a given color. Only coordinates are checked for performance reasons. Thus might throw exceptions.
  * @private
  */
-rasterImage.prototype._setPixel = function (x, y, color) {
+rasterImage.prototype._setPixel = function (x, y, color)
+{
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height)
+        return;
+
+    this.__setPixel(x, y, color);
+    return this;
+};
+
+/** 
+ * Sets a pixel in a raster image to a given color. Neither coordinates nor color are checked for performance reasons. Thus might throw exceptions.
+ * @private
+ */
+rasterImage.prototype.__setPixel = function (x, y, color) {
     var offset = (y * this.width + x) * BYTES_PER_PIXEL;
     this.data8.set(color, offset);
-}
+};
 
 /**
  * Alpha-blends a pixel in a raster image with the given color
@@ -172,28 +203,32 @@ rasterImage.prototype.blendPixel = function (x, y, color) {
     if (x < 0 || x >= this.width || y < 0 || y >= this.height)
         return;
     
-    var c = this._colorify(color);
+    var c = rasterImage._colorify(color);
     
     this._blendPixel(x, y, c);
-}
+};
 
 rasterImage.prototype._blendPixel = function (x, y, color) {
     
-    var offset = (y * this.width + x) * BYTES_PER_PIXEL;
+    var colorB = this.getPixel(x, y);
+    var newColor = this._blend(color, colorB);
+    this._setPixel(x, y, newColor);
+};
+
+/** Mixes two colors weighted by their alpha values
+ * 
+ */
+rasterImage.prototype._blend = function (colorA, colorB) {
+    var adiv = colorA[A] / 255;
+    var bladiv = colorB[A] * (255 - colorA[A]) / (255 * 255);
     
-    var adiv = color[A] / 255;
-    var bladiv = this.data8[offset + A] * (255 - color[A]) / (255 * 255);
+    var rOut = (colorA[R] * adiv) + (colorB[R] * bladiv);
+    var gOut = (colorA[G] * adiv) + (colorB[G] * bladiv);
+    var bOut = (colorA[B] * adiv) + (colorB[B] * bladiv);
+    var aOut = colorA[A] + (colorB[A] * (255 - colorA[A]) / 255);
     
-    var rOut = (color[R] * adiv) + (this.data8[offset + R] * bladiv);
-    var gOut = (color[G] * adiv) + (this.data8[offset + G] * bladiv);
-    var bOut = (color[B] * adiv) + (this.data8[offset + B] * bladiv );
-    var aOut = color[A] + (this.data8[offset + A] * (255 - color[A]) / 255);
-    
-    this.data8[offset + R] = rOut;
-    this.data8[offset + G] = gOut;
-    this.data8[offset + B] = bOut;
-    this.data8[offset + A] = aOut;
-}
+    return [rOut, gOut, bOut, aOut];
+};
 
 /**
  * Retrieves the color of a pixel in a raster image.
@@ -218,7 +253,7 @@ rasterImage.prototype.getPixel = function (x, y) {
     ];
     
     return result;
-}
+};
 
 /**
  * Creates a raster image from an array(-like) of RGB data
@@ -251,7 +286,7 @@ rasterImage.fromRgb = function (width, height, data) {
     }
     
     return new rasterImage(w, h, tmp);
-}
+};
 
 
 rasterImage.fromRgba = function (width, height, data) {
@@ -265,7 +300,7 @@ rasterImage.fromRgba = function (width, height, data) {
     
     var tmp = Uint8ClampedArray.from(data);
     return new rasterImage(w, h, tmp);
-}
+};
 
 /**
  * Rotates an image by 270 degrees clockwise (or 90 degrees counter clockwise)
@@ -288,7 +323,7 @@ rasterImage.prototype.rotate270 = function () {
     this._replaceBuffer(tmp, h, w);		// swap width and height
     
     return this;
-}
+};
 
 /**
  * Rotates an image by 90 degrees clockwise
@@ -311,7 +346,7 @@ rasterImage.prototype.rotate90 = function () {
     this._replaceBuffer(tmp, h, w);		// swap width and height
     
     return this;
-}
+};
 
 /**
  * Rotates an image by 180 degrees
@@ -334,7 +369,7 @@ rasterImage.prototype.rotate180 = function () {
     
     this._replaceBuffer(tmp);
     return this;
-}
+};
 
 /**
  * Flips an image horizontally
@@ -361,7 +396,7 @@ rasterImage.prototype.flipHorizontally = function () {
     
     this._replaceBuffer(tmp);
     return this;
-}
+};
 
 /**
  * Flips an image vertically
@@ -387,7 +422,7 @@ rasterImage.prototype.flipVertically = function () {
     
     this._replaceBuffer(tmp);
     return this;
-}
+};
 
 rasterImage.prototype.crop = function (x, y, w, h) {
     
@@ -411,7 +446,7 @@ rasterImage.prototype.crop = function (x, y, w, h) {
     
     this._replaceBuffer(tmp, w, h);
     return this;
-}
+};
 
 rasterImage.prototype.toRgb = function () {
     var tmp = new ArrayBuffer(this.numPixels * 3);
@@ -428,7 +463,7 @@ rasterImage.prototype.toRgb = function () {
         }
     }
     return tmp;
-}
+};
 
 /** 
  * Resizes a raster image using the "nearest neighbour" algorithm (which is fast, but low quality)
@@ -454,7 +489,7 @@ rasterImage.prototype.resize_nearest = function (newWidth, newHeight) {
     
     this._replaceBuffer(tmp, newWidth, newHeight);
     return this;
-}
+};
 
 rasterImage.prototype.resize_bilinear = function (newWidth, newHeight) {
     
@@ -486,14 +521,14 @@ rasterImage.prototype.resize_bilinear = function (newWidth, newHeight) {
             c = this.data32[index + w];
             d = this.data32[index + w + 1];
             
-            blue = (a & 0xff) * (1 - x_diff) * (1 - y_diff) + (b & 0xff) * (x_diff) * (1 - y_diff) + (c & 0xff) * (y_diff) * (1 - x_diff) + (d & 0xff) * (x_diff * y_diff);
-            green = ((a >> 8) & 0xff) * (1 - x_diff) * (1 - y_diff) + ((b >> 8) & 0xff) * (x_diff) * (1 - y_diff) + ((c >> 8) & 0xff) * (y_diff) * (1 - x_diff) + ((d >> 8) & 0xff) * (x_diff * y_diff);
-            red = ((a >> 16) & 0xff) * (1 - x_diff) * (1 - y_diff) + ((b >> 16) & 0xff) * (x_diff) * (1 - y_diff) + ((c >> 16) & 0xff) * (y_diff) * (1 - x_diff) + ((d >> 16) & 0xff) * (x_diff * y_diff);
+            blue   = (a & 0xff)        * (1 - x_diff) * (1 - y_diff) +  (b & 0xff)        * (x_diff) * (1 - y_diff) +  (c & 0xff)        * (y_diff) * (1 - x_diff) +  (d & 0xff)        * (x_diff * y_diff);
+            green = ((a >>  8) & 0xff) * (1 - x_diff) * (1 - y_diff) + ((b >>  8) & 0xff) * (x_diff) * (1 - y_diff) + ((c >>  8) & 0xff) * (y_diff) * (1 - x_diff) + ((d >>  8) & 0xff) * (x_diff * y_diff);
+            red   = ((a >> 16) & 0xff) * (1 - x_diff) * (1 - y_diff) + ((b >> 16) & 0xff) * (x_diff) * (1 - y_diff) + ((c >> 16) & 0xff) * (y_diff) * (1 - x_diff) + ((d >> 16) & 0xff) * (x_diff * y_diff);
             alpha = ((a >> 24) & 0xff) * (1 - x_diff) * (1 - y_diff) + ((b >> 24) & 0xff) * (x_diff) * (1 - y_diff) + ((c >> 24) & 0xff) * (y_diff) * (1 - x_diff) + ((d >> 24) & 0xff) * (x_diff * y_diff);
             newImage.data32[offset++] = alpha << 24 | red << 16 | green << 8 | blue;
         }
     }
     return newImage;
-}
+};
 
 module.exports = rasterImage;

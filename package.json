@@ -36,5 +36,12 @@
   "repository": {
     "type": "git",
     "url": "ssh://solidnas/volume1/git-repos/rasterman"
+  },
+  "jshintConfig": {
+    "node": true,
+    "freeze": true,
+    "noarg": true,
+    "nonew": true,
+    "unused": true
   }
 }

@@ -34,11 +34,11 @@ exports.init = function (rasterImage) {
         var stream = null;
         if (typeof (where) === "string") {
             stream = fs.createWriteStream(where);
-        } else if (where instanceof (Writable)) {
+        } else if (where instanceof (stream.Writable)) {
             stream = where;
         }
         
-        if (stream != null) {
+        if (stream !== null) {
             var encoder = pics.encode(format, { width: this.width, height: this.height, colorSpace: 'rgba' });
             var buf = new Buffer(this.data8);
             encoder.write(buf);
@@ -49,5 +49,5 @@ exports.init = function (rasterImage) {
         } else {
             cb(new Error("Cannot write to target of type " + typeof (where)));
         }
-    }
-}
+    };
+};
